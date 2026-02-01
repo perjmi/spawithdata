@@ -104,15 +104,16 @@ function updateGalleryColumns() {
     gallery.classList.add(`cols-${cols}`);
 }
 
-// Populate source filter checkboxes from data
+// Populate source filter radio buttons from data
 function populateSourceFilter() {
     const container = document.getElementById('instrument-filter');
     const sources = DataProcessor.getSources();
 
-    container.innerHTML = sources.map(source => {
+    container.innerHTML = sources.map((source, index) => {
         const meta = DataProcessor.getSourceMetadata(source);
         const tzLabel = meta ? ` (${meta.timezone.split('/')[1]})` : '';
-        return `<label><input type="checkbox" value="${source}" checked> ${source}${tzLabel}</label>`;
+        const checked = index === 0 ? 'checked' : '';
+        return `<label><input type="radio" name="instrument" value="${source}" ${checked}> ${source}${tzLabel}</label>`;
     }).join('');
 }
 
@@ -187,10 +188,10 @@ function renderBarFilters() {
     }).join('');
 }
 
-// Get checked values for a filter group
+// Get selected values for a filter group (supports both checkboxes and radio buttons)
 function getCheckedValues(filterName) {
-    const checkboxes = document.querySelectorAll(`[data-filter="${filterName}"] input[type="checkbox"]:checked`);
-    return Array.from(checkboxes).map(cb => cb.value);
+    const inputs = document.querySelectorAll(`[data-filter="${filterName}"] input:checked`);
+    return Array.from(inputs).map(input => input.value);
 }
 
 // Format date from YYYYMMDD to readable format
@@ -319,15 +320,29 @@ function applyFilters() {
 
 // Clear all filters
 function clearFilters() {
-    // Check all checkboxes
+    // Reset checkboxes - check all except prev_day (opt-in filters)
     document.querySelectorAll('.checkbox-group input[type="checkbox"]').forEach(cb => {
-        // For prev_day filters, uncheck them (they are opt-in)
         if (cb.closest('[data-filter="prev_day"]')) {
             cb.checked = false;
-        } else {
+        } else if (cb.closest('[data-filter="gap_direction"]') || cb.closest('[data-filter="gap_size_class"]')) {
             cb.checked = true;
         }
     });
+
+    // Reset radio buttons to first option (for instrument) or specific defaults
+    // Instrument: first source
+    const instrumentRadios = document.querySelectorAll('[data-filter="instrument"] input[type="radio"]');
+    if (instrumentRadios.length > 0) {
+        instrumentRadios[0].checked = true;
+    }
+
+    // Frequency: 5min (first option)
+    const freqRadio = document.querySelector('[data-filter="freq"] input[value="5min"]');
+    if (freqRadio) freqRadio.checked = true;
+
+    // Bars: Full day (999)
+    const barsRadio = document.querySelector('[data-filter="bars"] input[value="999"]');
+    if (barsRadio) barsRadio.checked = true;
 
     // Clear bar filters
     barFilters = [];
