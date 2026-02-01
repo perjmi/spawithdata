@@ -223,16 +223,18 @@ body {
 
 .bar-filter-add {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
     margin-top: 10px;
 }
 
 .bar-filter-add select {
     flex: 1;
+    min-width: 70px;
     padding: 8px;
     border: none;
     border-radius: 4px;
-    font-size: 0.9em;
+    font-size: 0.85em;
 }
 
 .bar-filter-add .add-btn {

@@ -135,9 +135,11 @@ function populateBarNumberDropdown() {
 function addBarFilter() {
     const barSelect = document.getElementById('bar-number-select');
     const directionSelect = document.getElementById('bar-direction-select');
+    const bodyRatioSelect = document.getElementById('bar-body-ratio-select');
 
     const barNum = parseInt(barSelect.value);
     const direction = directionSelect.value;
+    const bodyRatio = bodyRatioSelect.value;
 
     if (!barNum) return;
 
@@ -145,10 +147,10 @@ function addBarFilter() {
     const exists = barFilters.some(f => f.bar === barNum);
     if (exists) {
         // Update existing filter
-        barFilters = barFilters.map(f => f.bar === barNum ? {bar: barNum, direction} : f);
+        barFilters = barFilters.map(f => f.bar === barNum ? {bar: barNum, direction, bodyRatio} : f);
     } else {
         // Add new filter
-        barFilters.push({bar: barNum, direction});
+        barFilters.push({bar: barNum, direction, bodyRatio});
     }
 
     // Sort by bar number
@@ -156,6 +158,7 @@ function addBarFilter() {
 
     renderBarFilters();
     barSelect.value = '';
+    bodyRatioSelect.value = 'any';
 }
 
 // Remove a bar filter
@@ -173,12 +176,15 @@ function renderBarFilters() {
         return;
     }
 
-    container.innerHTML = barFilters.map(f => `
-        <div class="bar-filter-item">
-            <span>Bar ${f.bar} = <strong>${f.direction}</strong></span>
-            <button class="remove-btn" onclick="removeBarFilter(${f.bar})">Remove</button>
-        </div>
-    `).join('');
+    container.innerHTML = barFilters.map(f => {
+        const bodyRatioText = f.bodyRatio && f.bodyRatio !== 'any' ? ` (${f.bodyRatio})` : '';
+        return `
+            <div class="bar-filter-item">
+                <span>Bar ${f.bar} = <strong>${f.direction}</strong>${bodyRatioText}</span>
+                <button class="remove-btn" onclick="removeBarFilter(${f.bar})">Remove</button>
+            </div>
+        `;
+    }).join('');
 }
 
 // Get checked values for a filter group

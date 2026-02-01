@@ -63,7 +63,8 @@ const DataProcessor = (function() {
                     prevHigh: day.prevHigh,
                     prevLow: day.prevLow,
                     bars: day.bars,
-                    barDirections: day.barDirections
+                    barDirections: day.barDirections,
+                    bodyRatios: day.bodyRatios || []
                 });
             }
         }
@@ -134,8 +135,9 @@ const DataProcessor = (function() {
             bars = bars.slice(0, maxBars);
         }
 
-        // Calculate bar directions for the aggregated frequency
+        // Calculate bar directions and body ratios for the aggregated frequency
         const barDirections = ChartRenderer.calculateBarDirections(bars);
+        const bodyRatios = ChartRenderer.calculateBodyRatios(bars);
 
         return {
             source: entry.source,
@@ -152,7 +154,8 @@ const DataProcessor = (function() {
             prevHigh: entry.prevHigh,
             prevLow: entry.prevLow,
             bars,
-            barDirections
+            barDirections,
+            bodyRatios
         };
     }
 
@@ -221,7 +224,7 @@ const DataProcessor = (function() {
                         continue;
                     }
 
-                    // Bar direction filters (must match ALL)
+                    // Bar direction and body ratio filters (must match ALL)
                     if (barFilters.length > 0) {
                         let matchesBarFilters = true;
                         for (const bf of barFilters) {
@@ -230,9 +233,21 @@ const DataProcessor = (function() {
                                 matchesBarFilters = false;
                                 break;
                             }
+                            // Check direction
                             if (chartData.barDirections[barIndex] !== bf.direction) {
                                 matchesBarFilters = false;
                                 break;
+                            }
+                            // Check body ratio if specified
+                            if (bf.bodyRatio && bf.bodyRatio !== 'any') {
+                                if (barIndex >= chartData.bodyRatios.length) {
+                                    matchesBarFilters = false;
+                                    break;
+                                }
+                                if (chartData.bodyRatios[barIndex] !== bf.bodyRatio) {
+                                    matchesBarFilters = false;
+                                    break;
+                                }
                             }
                         }
                         if (!matchesBarFilters) continue;

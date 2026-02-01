@@ -198,6 +198,40 @@ def calculate_bar_directions(ohlc_df):
     return directions
 
 
+def calculate_body_ratios(ohlc_df):
+    """Calculate body-to-range ratio for each bar.
+
+    Body = abs(close - open)
+    Range = high - low
+    Ratio = body / range * 100
+
+    Categories:
+    - '<25%': Small body (doji-like)
+    - '25-50%': Medium-small body
+    - '50-75%': Medium-large body
+    - '>75%': Large body (marubozu-like)
+    """
+    ratios = []
+    for _, row in ohlc_df.iterrows():
+        high_low_range = row['High'] - row['Low']
+        if high_low_range > 0:
+            body = abs(row['Close'] - row['Open'])
+            ratio = (body / high_low_range) * 100
+
+            if ratio < 25:
+                ratios.append('<25%')
+            elif ratio < 50:
+                ratios.append('25-50%')
+            elif ratio < 75:
+                ratios.append('50-75%')
+            else:
+                ratios.append('>75%')
+        else:
+            # No range (same high/low) - treat as small body
+            ratios.append('<25%')
+    return ratios
+
+
 def process_source_data(data, source_name, config):
     """Process data for a single source and return trading days with OHLC data."""
     data = data.copy()
@@ -281,8 +315,9 @@ def process_source_data(data, source_name, config):
                 round(row['Close'], 2)
             ])
 
-        # Calculate bar directions
+        # Calculate bar directions and body ratios
         bar_dirs = calculate_bar_directions(ohlc)
+        body_ratios = calculate_body_ratios(ohlc)
 
         results.append({
             'date': day.strftime('%Y%m%d'),
@@ -294,7 +329,8 @@ def process_source_data(data, source_name, config):
             'openAbovePrevHigh': open_above_prev_high,
             'closeBelowPrevLow': close_below_prev_low,
             'bars': bars,
-            'barDirections': bar_dirs
+            'barDirections': bar_dirs,
+            'bodyRatios': body_ratios
         })
 
         # Store for next iteration
@@ -450,6 +486,7 @@ def process_year_data(data, config, prev_day_stats):
             ])
 
         bar_dirs = calculate_bar_directions(ohlc)
+        body_ratios = calculate_body_ratios(ohlc)
 
         results.append({
             'date': day.strftime('%Y%m%d'),
@@ -461,7 +498,8 @@ def process_year_data(data, config, prev_day_stats):
             'openAbovePrevHigh': open_above_prev_high,
             'closeBelowPrevLow': close_below_prev_low,
             'bars': bars,
-            'barDirections': bar_dirs
+            'barDirections': bar_dirs,
+            'bodyRatios': body_ratios
         })
 
         prev_day_stats = {

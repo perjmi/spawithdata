@@ -160,12 +160,38 @@ const ChartRenderer = (function() {
         });
     }
 
+    /**
+     * Calculate body-to-range ratios after aggregation
+     * @param {Array} bars - Array of [timestamp_ms, open, high, low, close]
+     * @returns {Array} Array of ratio categories ('<25%', '25-50%', '50-75%', '>75%')
+     */
+    function calculateBodyRatios(bars) {
+        return bars.map(bar => {
+            const open = bar[1];
+            const high = bar[2];
+            const low = bar[3];
+            const close = bar[4];
+
+            const range = high - low;
+            if (range <= 0) return '<25%';
+
+            const body = Math.abs(close - open);
+            const ratio = (body / range) * 100;
+
+            if (ratio < 25) return '<25%';
+            if (ratio < 50) return '25-50%';
+            if (ratio < 75) return '50-75%';
+            return '>75%';
+        });
+    }
+
     // Public API
     return {
         createChart,
         destroyChart,
         destroyAllCharts,
         aggregateToFrequency,
-        calculateBarDirections
+        calculateBarDirections,
+        calculateBodyRatios
     };
 })();
