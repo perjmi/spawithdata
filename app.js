@@ -223,18 +223,21 @@ function createChartCard(chartData, index) {
 
     const sourceClass = getSourceBadgeClass(chartData.source);
 
-    // Create bar directions display (first 20 bars)
+    // Create bar directions display (only show bars with active filters)
     let barDirsHtml = '';
-    if (chartData.barDirections && chartData.barDirections.length > 0) {
-        const displayBars = chartData.barDirections.slice(0, 20);
-        barDirsHtml = displayBars.map((dir, i) => {
-            const cls = dir === 'UP' ? 'bar-up' :
-                        dir === 'DOWN' ? 'bar-down' : 'bar-flat';
-            return `<span class="${cls}">${i + 1}:${dir.charAt(0)}</span>`;
-        }).join('');
-        if (chartData.barDirections.length > 20) {
-            barDirsHtml += `<span>... +${chartData.barDirections.length - 20} more</span>`;
-        }
+    if (barFilters.length > 0 && chartData.barDirections && chartData.barDirections.length > 0) {
+        barDirsHtml = barFilters.map(f => {
+            const barIndex = f.bar - 1;
+            if (barIndex < chartData.barDirections.length) {
+                const dir = chartData.barDirections[barIndex];
+                const cls = dir === 'UP' ? 'bar-up' :
+                            dir === 'DOWN' ? 'bar-down' : 'bar-flat';
+                const bodyRatioText = f.bodyRatio && f.bodyRatio !== 'any' ?
+                    ` [${chartData.bodyRatios[barIndex]}]` : '';
+                return `<span class="${cls}">Bar ${f.bar}: ${dir}${bodyRatioText}</span>`;
+            }
+            return '';
+        }).filter(s => s).join('');
     }
 
     // Previous day comparison indicators
