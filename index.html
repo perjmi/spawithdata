@@ -6,6 +6,7 @@
     <title>DAX Futures Chart Viewer</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS@3.12.0/dist/pptxgen.bundle.js"></script>
 </head>
 <body>
     <!-- Login Screen -->
@@ -142,6 +143,19 @@
             <div class="result-count">
                 Showing <span id="visible-count">0</span> of <span id="total-count">0</span> charts
             </div>
+
+            <div class="export-section">
+                <label>Export Charts</label>
+                <div class="export-buttons">
+                    <button id="export-markdown" class="export-btn export-md" title="Export to Markdown">
+                        <span class="export-icon">MD</span> Markdown
+                    </button>
+                    <button id="export-pptx" class="export-btn export-pptx" title="Export to PowerPoint">
+                        <span class="export-icon">PPT</span> PowerPoint
+                    </button>
+                </div>
+                <p class="export-hint">Exports displayed charts in chronological order</p>
+            </div>
         </div>
 
         <div class="gallery" id="gallery">
@@ -151,6 +165,7 @@
 
     <script src="data-processor.js"></script>
     <script src="chart-renderer.js"></script>
+    <script src="export.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

@@ -89,6 +89,10 @@ function setupEventListeners() {
     document.getElementById('clear-filters').addEventListener('click', clearFilters);
     document.getElementById('add-bar-filter').addEventListener('click', addBarFilter);
     document.getElementById('charts-per-row').addEventListener('change', updateGalleryColumns);
+
+    // Export buttons
+    document.getElementById('export-markdown').addEventListener('click', () => Exporter.exportToMarkdown());
+    document.getElementById('export-pptx').addEventListener('click', () => Exporter.exportToPowerPoint());
 }
 
 // Update gallery columns based on selection
@@ -284,6 +288,9 @@ function applyFilters() {
     // Update counts
     document.getElementById('visible-count').textContent = toDisplay.length;
     document.getElementById('total-count').textContent = filteredCharts.length;
+
+    // Update exporter with current charts
+    Exporter.setCharts(toDisplay);
 
     const gallery = document.getElementById('gallery');
 

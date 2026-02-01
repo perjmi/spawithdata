@@ -501,3 +501,87 @@ body {
     background: #e2e3e5;
     color: #383d41;
 }
+
+/* Export Section */
+.export-section {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #3d566e;
+}
+
+.export-section > label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #bdc3c7;
+    font-size: 0.9em;
+    text-transform: uppercase;
+}
+
+.export-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.export-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 10px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.export-btn .export-icon {
+    font-size: 0.8em;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.export-btn.export-md {
+    background: #6c5ce7;
+    color: white;
+}
+
+.export-btn.export-md:hover {
+    background: #5b4cdb;
+}
+
+.export-btn.export-pptx {
+    background: #e67e22;
+    color: white;
+}
+
+.export-btn.export-pptx:hover {
+    background: #d35400;
+}
+
+.export-hint {
+    margin-top: 10px;
+    font-size: 0.8em;
+    color: #7f8c8d;
+    text-align: center;
+}
+
+/* Export Progress Overlay */
+.export-progress {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(44, 62, 80, 0.95);
+    color: white;
+    padding: 30px 50px;
+    border-radius: 10px;
+    font-size: 1.1em;
+    z-index: 10000;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    display: none;
+}
