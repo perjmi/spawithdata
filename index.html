@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAX Futures Chart Viewer</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-container">
+            <h1>DAX Chart Viewer</h1>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="login-btn">Login</button>
+                <p id="login-error" class="error-message"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen" style="display: none;">
+        <div class="loading-container">
+            <h2>Loading Data...</h2>
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            <p id="loading-status">Fetching OHLC data...</p>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="main-app" class="main-app" style="display: none;">
+        <div class="sidebar">
+            <h2>Filters</h2>
+
+            <!-- Display Settings -->
+            <div class="filter-group">
+                <label>Charts per Row</label>
+                <select id="charts-per-row" class="display-select">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3" selected>3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                </select>
+            </div>
+
+            <!-- Instrument Filter -->
+            <div class="filter-group">
+                <label>Source</label>
+                <div class="checkbox-group" data-filter="instrument" id="instrument-filter">
+                    <!-- Populated dynamically from data -->
+                </div>
+            </div>
+
+            <!-- Frequency Filter -->
+            <div class="filter-group">
+                <label>Frequency</label>
+                <div class="checkbox-group" data-filter="freq">
+                    <label><input type="checkbox" value="5min" checked> 5min</label>
+                    <label><input type="checkbox" value="10min" checked> 10min</label>
+                    <label><input type="checkbox" value="15min" checked> 15min</label>
+                </div>
+            </div>
+
+            <!-- Bars Filter -->
+            <div class="filter-group">
+                <label>Bars</label>
+                <div class="checkbox-group" data-filter="bars">
+                    <label><input type="checkbox" value="36" checked> 36 bars</label>
+                    <label><input type="checkbox" value="999" checked> Full day</label>
+                </div>
+            </div>
+
+            <!-- Gap Direction Filter -->
+            <div class="filter-group">
+                <label>Gap Direction</label>
+                <div class="checkbox-group" data-filter="gap_direction">
+                    <label><input type="checkbox" value="GAP UP" checked> GAP UP</label>
+                    <label><input type="checkbox" value="GAP DOWN" checked> GAP DOWN</label>
+                    <label><input type="checkbox" value="FLAT" checked> FLAT</label>
+                    <label><input type="checkbox" value="N/A" checked> N/A</label>
+                </div>
+            </div>
+
+            <!-- Gap Size Filter -->
+            <div class="filter-group">
+                <label>Gap Size</label>
+                <div class="checkbox-group" data-filter="gap_size_class">
+                    <label><input type="checkbox" value="0-0.1%" checked> 0-0.1%</label>
+                    <label><input type="checkbox" value="0.1%-0.25%" checked> 0.1%-0.25%</label>
+                    <label><input type="checkbox" value="0.25%-0.5%" checked> 0.25%-0.5%</label>
+                    <label><input type="checkbox" value="0.5%-1.0%" checked> 0.5%-1.0%</label>
+                    <label><input type="checkbox" value="1.0%+" checked> 1.0%+</label>
+                    <label><input type="checkbox" value="N/A" checked> N/A</label>
+                </div>
+            </div>
+
+            <!-- Previous Day Comparison Filters -->
+            <div class="filter-group">
+                <label>Previous Day Comparison</label>
+                <div class="checkbox-group" data-filter="prev_day">
+                    <label><input type="checkbox" value="open_above_prev_high"> Open above prev high</label>
+                    <label><input type="checkbox" value="close_below_prev_low"> Close below prev low</label>
+                </div>
+            </div>
+
+            <!-- Bar Direction Filters -->
+            <div class="filter-group">
+                <label>Bar Direction Filters</label>
+                <div id="bar-filters-container">
+                    <p style="color: #7f8c8d; font-size: 0.85em; padding: 8px;">No bar filters (showing all)</p>
+                </div>
+                <div class="bar-filter-add">
+                    <select id="bar-number-select">
+                        <option value="">Select bar #</option>
+                    </select>
+                    <select id="bar-direction-select">
+                        <option value="UP">UP</option>
+                        <option value="DOWN">DOWN</option>
+                        <option value="FLAT">FLAT</option>
+                    </select>
+                    <button type="button" id="add-bar-filter" class="add-btn">Add</button>
+                </div>
+            </div>
+
+            <div class="filter-actions">
+                <button id="apply-filters" class="apply-btn">Apply Filters</button>
+                <button id="clear-filters" class="clear-btn">Clear Filters</button>
+            </div>
+
+            <div class="result-count">
+                Showing <span id="visible-count">0</span> of <span id="total-count">0</span> charts
+            </div>
+        </div>
+
+        <div class="gallery" id="gallery">
+            <p class="loading">Select filters and click Apply...</p>
+        </div>
+    </div>
+
+    <script src="data-processor.js"></script>
+    <script src="chart-renderer.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
