@@ -312,7 +312,7 @@ function applyFilters() {
     requestAnimationFrame(() => {
         toDisplay.forEach((chartData, index) => {
             const containerId = `chart-${index}`;
-            ChartRenderer.createChart(containerId, chartData.bars);
+            ChartRenderer.createChart(containerId, chartData.bars, { timezone: chartData.timezone });
         });
     });
 }

@@ -8,10 +8,28 @@ const ChartRenderer = (function() {
     const activeCharts = new Map();
 
     /**
+     * Get timezone offset in seconds for a given timestamp and timezone
+     * @param {number} timestampMs - UTC timestamp in milliseconds
+     * @param {string} timezone - IANA timezone string (e.g., 'Europe/London')
+     * @returns {number} Offset in seconds to add to UTC to get local time
+     */
+    function getTimezoneOffset(timestampMs, timezone) {
+        const date = new Date(timestampMs);
+        // Get UTC time string
+        const utcStr = date.toLocaleString('en-US', { timeZone: 'UTC' });
+        // Get local time string in target timezone
+        const localStr = date.toLocaleString('en-US', { timeZone: timezone });
+        // Parse both and calculate difference
+        const utcDate = new Date(utcStr);
+        const localDate = new Date(localStr);
+        return (localDate - utcDate) / 1000; // Return offset in seconds
+    }
+
+    /**
      * Create a candlestick chart in the specified container
      * @param {string} containerId - DOM element ID for the chart container
      * @param {Array} ohlcData - Array of [timestamp_ms, open, high, low, close]
-     * @param {Object} options - Chart options
+     * @param {Object} options - Chart options (including timezone)
      * @returns {Object} Chart instance
      */
     function createChart(containerId, ohlcData, options = {}) {
@@ -63,13 +81,23 @@ const ChartRenderer = (function() {
         });
 
         // Convert data to lightweight-charts format
-        const formattedData = ohlcData.map(bar => ({
-            time: bar[0] / 1000, // Convert ms to seconds
-            open: bar[1],
-            high: bar[2],
-            low: bar[3],
-            close: bar[4]
-        }));
+        // Apply timezone offset if specified to display local time
+        const timezone = options.timezone;
+        const formattedData = ohlcData.map(bar => {
+            let timeInSeconds = bar[0] / 1000;
+            // Adjust for timezone if specified
+            if (timezone) {
+                const offset = getTimezoneOffset(bar[0], timezone);
+                timeInSeconds += offset;
+            }
+            return {
+                time: timeInSeconds,
+                open: bar[1],
+                high: bar[2],
+                low: bar[3],
+                close: bar[4]
+            };
+        });
 
         candlestickSeries.setData(formattedData);
 
