@@ -367,7 +367,7 @@ function applyFilters() {
     const filters = {
         sources: getCheckedValues('instrument'),
         frequencies: getCheckedValues('freq'),
-        barsOptions: getCheckedValues('bars').map(v => parseInt(v)),
+        barsOptions: [999],
         gapDirections: getCheckedValues('gap_direction'),
         gapSizeClasses: getCheckedValues('gap_size_class'),
         prevDayFilters: getCheckedValues('prev_day'),
@@ -451,10 +451,6 @@ function clearFilters() {
     // Frequency: 5min (first option)
     const freqRadio = document.querySelector('[data-filter="freq"] input[value="5min"]');
     if (freqRadio) freqRadio.checked = true;
-
-    // Bars: Full day (999)
-    const barsRadio = document.querySelector('[data-filter="bars"] input[value="999"]');
-    if (barsRadio) barsRadio.checked = true;
 
     // Clear bar filters
     barFilters = [];

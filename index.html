@@ -48,9 +48,9 @@
             <div class="filter-group">
                 <label>Charts per Row</label>
                 <select id="charts-per-row" class="display-select">
-                    <option value="1">1</option>
+                    <option value="1" selected>1</option>
                     <option value="2">2</option>
-                    <option value="3" selected>3</option>
+                    <option value="3">3</option>
                     <option value="4">4</option>
                     <option value="5">5</option>
                 </select>
@@ -74,14 +74,8 @@
                 </div>
             </div>
 
-            <!-- Bars Filter -->
-            <div class="filter-group">
-                <label>Bars</label>
-                <div class="checkbox-group" data-filter="bars">
-                    <label><input type="radio" name="bars" value="36"> 36 bars</label>
-                    <label><input type="radio" name="bars" value="999" checked> Full day</label>
-                </div>
-            </div>
+            <!-- Bars (always full day) -->
+            <input type="hidden" name="bars" value="999">
 
             <!-- Gap Direction Filter -->
             <div class="filter-group">
@@ -209,10 +203,10 @@
         </div>
     </div>
 
-    <script src="data-processor.js?v=2"></script>
-    <script src="chart-renderer.js?v=2"></script>
-    <script src="export.js?v=2"></script>
-    <script src="trade-simulator.js?v=2"></script>
-    <script src="app.js?v=2"></script>
+    <script src="data-processor.js?v=3"></script>
+    <script src="chart-renderer.js?v=3"></script>
+    <script src="export.js?v=3"></script>
+    <script src="trade-simulator.js?v=3"></script>
+    <script src="app.js?v=3"></script>
 </body>
 </html>
