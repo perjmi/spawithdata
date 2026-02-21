@@ -124,6 +124,7 @@ const TradeSimulator = (function() {
 
         const decisive = wins + losses;
         const winRate = decisive > 0 ? (wins / decisive) * 100 : 0;
+        const avgPnL = decisive > 0 ? totalPnL / decisive : 0;
 
         return {
             wins,
@@ -131,7 +132,7 @@ const TradeSimulator = (function() {
             skipped,
             decisive,
             winRate,
-            totalPnL,
+            avgPnL,
             trades
         };
     }

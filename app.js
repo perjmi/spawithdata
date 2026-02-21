@@ -311,8 +311,8 @@ function getSimulationParams() {
 
 // Render simulation results banner HTML
 function renderSimResultsBanner(results, params) {
-    const pnlClass = results.totalPnL >= 0 ? 'positive' : 'negative';
-    const pnlSign = results.totalPnL >= 0 ? '+' : '';
+    const pnlClass = results.avgPnL >= 0 ? 'positive' : 'negative';
+    const pnlSign = results.avgPnL >= 0 ? '+' : '';
     const dirLabel = params.direction;
     const desc = `Bar ${params.triggerBar} ${dirLabel} | Target ${params.targetPct}% | Stop ${params.stopPct}%`;
 
@@ -325,8 +325,8 @@ function renderSimResultsBanner(results, params) {
                     <span class="sim-stat-label">Win Rate</span>
                 </div>
                 <div class="sim-stat ${pnlClass}">
-                    <span class="sim-stat-value">${pnlSign}${results.totalPnL.toFixed(1)}</span>
-                    <span class="sim-stat-label">Total PnL</span>
+                    <span class="sim-stat-value">${pnlSign}${results.avgPnL.toFixed(1)}</span>
+                    <span class="sim-stat-label">Avg PnL</span>
                 </div>
                 <div class="sim-stat positive">
                     <span class="sim-stat-value">${results.wins}</span>
