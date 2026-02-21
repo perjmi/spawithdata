@@ -93,6 +93,9 @@ function setupEventListeners() {
     // Export buttons
     document.getElementById('export-markdown').addEventListener('click', () => Exporter.exportToMarkdown());
     document.getElementById('export-pptx').addEventListener('click', () => Exporter.exportToPowerPoint());
+
+    // Simulation
+    document.getElementById('clear-simulation').addEventListener('click', clearSimulation);
 }
 
 // Update gallery columns based on selection
@@ -120,7 +123,9 @@ function populateSourceFilter() {
 // Populate bar number dropdown
 function populateBarNumberDropdown() {
     const select = document.getElementById('bar-number-select');
+    const simSelect = document.getElementById('sim-trigger-bar');
     select.innerHTML = '<option value="">Select bar #</option>';
+    simSelect.innerHTML = '<option value="">None</option>';
 
     const maxBar = DataProcessor.getMaxBarCount();
 
@@ -129,6 +134,11 @@ function populateBarNumberDropdown() {
         option.value = i;
         option.textContent = `Bar ${i}`;
         select.appendChild(option);
+
+        const simOption = document.createElement('option');
+        simOption.value = i;
+        simOption.textContent = `Bar ${i}`;
+        simSelect.appendChild(simOption);
     }
 }
 
@@ -216,7 +226,7 @@ function getSourceBadgeClass(source) {
 }
 
 // Create chart card HTML
-function createChartCard(chartData, index) {
+function createChartCard(chartData, index, tradeResult) {
     const containerId = `chart-${index}`;
     const gapClass = chartData.gapDirection === 'GAP UP' ? 'gap-up' :
                      chartData.gapDirection === 'GAP DOWN' ? 'gap-down' : '';
@@ -255,6 +265,20 @@ function createChartCard(chartData, index) {
     // Timezone indicator
     const tzShort = chartData.timezone === 'America/New_York' ? 'NY' : 'LON';
 
+    // Trade outcome badge
+    let tradeBadgeHtml = '';
+    if (tradeResult) {
+        if (tradeResult.outcome === 'WIN') {
+            const pnl = tradeResult.pnl.toFixed(1);
+            tradeBadgeHtml = `<span class="trade-outcome-badge trade-win">WIN +${pnl}</span>`;
+        } else if (tradeResult.outcome === 'LOSS') {
+            const pnl = tradeResult.pnl.toFixed(1);
+            tradeBadgeHtml = `<span class="trade-outcome-badge trade-loss">LOSS ${pnl}</span>`;
+        } else {
+            tradeBadgeHtml = `<span class="trade-outcome-badge trade-skip">SKIP</span>`;
+        }
+    }
+
     return `
         <div class="chart-card">
             <div class="chart-info">
@@ -267,12 +291,71 @@ function createChartCard(chartData, index) {
                     <span class="${gapClass}">${chartData.gapDirection}</span>
                     <span>${chartData.gapSizeClass}</span>
                     ${prevDayHtml}
+                    ${tradeBadgeHtml}
                 </div>
             </div>
             ${barDirsHtml ? `<div class="bar-directions">${barDirsHtml}</div>` : ''}
             <div class="chart-container" id="${containerId}"></div>
         </div>
     `;
+}
+
+// Get simulation parameters from dropdowns
+function getSimulationParams() {
+    const triggerBar = parseInt(document.getElementById('sim-trigger-bar').value) || 0;
+    const direction = document.getElementById('sim-direction').value;
+    const targetPct = parseInt(document.getElementById('sim-target').value) || 0;
+    const stopPct = parseInt(document.getElementById('sim-stop').value) || 0;
+    return { triggerBar, direction, targetPct, stopPct };
+}
+
+// Render simulation results banner HTML
+function renderSimResultsBanner(results, params) {
+    const pnlClass = results.totalPnL >= 0 ? 'positive' : 'negative';
+    const pnlSign = results.totalPnL >= 0 ? '+' : '';
+    const dirLabel = params.direction;
+    const desc = `Bar ${params.triggerBar} ${dirLabel} | Target ${params.targetPct}% | Stop ${params.stopPct}%`;
+
+    return `
+        <div class="sim-results-banner">
+            <h4>Simulation: ${desc}</h4>
+            <div class="sim-stats">
+                <div class="sim-stat win-rate">
+                    <span class="sim-stat-value">${results.winRate.toFixed(1)}%</span>
+                    <span class="sim-stat-label">Win Rate</span>
+                </div>
+                <div class="sim-stat ${pnlClass}">
+                    <span class="sim-stat-value">${pnlSign}${results.totalPnL.toFixed(1)}</span>
+                    <span class="sim-stat-label">Total PnL</span>
+                </div>
+                <div class="sim-stat positive">
+                    <span class="sim-stat-value">${results.wins}</span>
+                    <span class="sim-stat-label">Wins</span>
+                </div>
+                <div class="sim-stat negative">
+                    <span class="sim-stat-value">${results.losses}</span>
+                    <span class="sim-stat-label">Losses</span>
+                </div>
+                <div class="sim-stat">
+                    <span class="sim-stat-value">${results.skipped}</span>
+                    <span class="sim-stat-label">Skipped</span>
+                </div>
+                <div class="sim-stat">
+                    <span class="sim-stat-value">${results.decisive}</span>
+                    <span class="sim-stat-label">Decisive</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Clear simulation parameters and re-apply filters
+function clearSimulation() {
+    document.getElementById('sim-trigger-bar').value = '';
+    document.getElementById('sim-direction').value = 'Long';
+    document.getElementById('sim-target').value = '100';
+    document.getElementById('sim-stop').value = '100';
+    applyFilters();
 }
 
 // Apply filters and render gallery
@@ -309,8 +392,34 @@ function applyFilters() {
         return;
     }
 
-    // Render chart cards
-    gallery.innerHTML = toDisplay.map((chart, index) => createChartCard(chart, index)).join('');
+    // Run simulation on ALL filtered charts if params are set
+    const simParams = getSimulationParams();
+    let simResults = null;
+    let tradeMap = {};
+
+    if (TradeSimulator.isValid(simParams)) {
+        simResults = TradeSimulator.simulate(filteredCharts, simParams);
+        // Build lookup map by chart key
+        for (const trade of simResults.trades) {
+            tradeMap[trade.key] = trade;
+        }
+    }
+
+    // Build gallery HTML
+    let galleryHtml = '';
+
+    // Prepend results banner if simulation ran
+    if (simResults) {
+        galleryHtml += renderSimResultsBanner(simResults, simParams);
+    }
+
+    // Render chart cards with trade results
+    galleryHtml += toDisplay.map((chart, index) => {
+        const tradeResult = tradeMap[chart.key] || null;
+        return createChartCard(chart, index, tradeResult);
+    }).join('');
+
+    gallery.innerHTML = galleryHtml;
 
     // Create charts after DOM update
     requestAnimationFrame(() => {
@@ -350,6 +459,12 @@ function clearFilters() {
     // Clear bar filters
     barFilters = [];
     renderBarFilters();
+
+    // Clear simulation params
+    document.getElementById('sim-trigger-bar').value = '';
+    document.getElementById('sim-direction').value = 'Long';
+    document.getElementById('sim-target').value = '100';
+    document.getElementById('sim-stop').value = '100';
 
     // Re-apply filters
     applyFilters();

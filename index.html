@@ -142,6 +142,45 @@
                 </div>
             </div>
 
+            <!-- Simulate Trade -->
+            <div class="simulate-trade-section">
+                <label>Simulate Trade</label>
+                <div class="sim-controls">
+                    <div class="sim-row">
+                        <label>Trigger Bar</label>
+                        <select id="sim-trigger-bar">
+                            <option value="">None</option>
+                        </select>
+                    </div>
+                    <div class="sim-row">
+                        <label>Direction</label>
+                        <select id="sim-direction">
+                            <option value="Long">Long</option>
+                            <option value="Short">Short</option>
+                        </select>
+                    </div>
+                    <div class="sim-row">
+                        <label>Target %</label>
+                        <select id="sim-target">
+                            <option value="50">50%</option>
+                            <option value="100" selected>100%</option>
+                            <option value="150">150%</option>
+                            <option value="200">200%</option>
+                        </select>
+                    </div>
+                    <div class="sim-row">
+                        <label>Stop Loss %</label>
+                        <select id="sim-stop">
+                            <option value="50">50%</option>
+                            <option value="100" selected>100%</option>
+                            <option value="150">150%</option>
+                            <option value="200">200%</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="clear-simulation" class="clear-sim-btn">Clear Simulation</button>
+            </div>
+
             <div class="filter-actions">
                 <button id="apply-filters" class="apply-btn">Apply Filters</button>
                 <button id="clear-filters" class="clear-btn">Clear Filters</button>
@@ -173,6 +212,7 @@
     <script src="data-processor.js"></script>
     <script src="chart-renderer.js"></script>
     <script src="export.js"></script>
+    <script src="trade-simulator.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
