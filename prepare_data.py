@@ -1,223 +1,87 @@
 #!/usr/bin/env python3
 """
-Prepare OHLC data from zip file sources for the SPA.
+Prepare OHLC data using DB_yield.py with Dukascopy as the data source.
 
-Data sources (all from zip files in ../data/):
-1. DAX INDEX.zip - DAX Futures CSV files (combined into single source)
-2. FTSE INDEX.zip - FTSE futures CSV files (combined into single source)
-3. US DOW NASDAQ SP500.zip - Individual CSV files for DOW, Nasdaq, SP500
-
-All CSV times are in London timezone (Europe/London).
-
-Handles timezone differences:
-- US instruments (DOW, Nasdaq, SP500): America/New_York, trading hours 9:30-16:00
-- EU instruments (DAX Futures, FTSE): Europe/London, trading hours vary
+Fetches raw tick data via dukascopy-node, aggregates to 5-min bars,
+filters to trading hours, and outputs data/ohlc_data.json for the SPA.
 """
 
 import pandas as pd
-import numpy as np
 import json
 import os
 import sys
-import zipfile
-import io
 from datetime import datetime, timedelta
 import pytz
+from DB_yield import Db
 
 # Configuration
-DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
 OUTPUT_FILE = os.path.join(os.path.dirname(__file__), 'data', 'ohlc_data.json')
+CHUNK_DAYS = 30
+END_DATE = datetime.now().strftime('%Y-%m-%d')
 
-# Zip files and their contents
-ZIP_FILES = {
-    'DAX INDEX.zip': {
-        'sources': {
-            'DAX Futures': {
-                'file_pattern': 'DAX FUTURES',  # Match all DAX FUTURES*.csv
-                'combine': True,  # Combine multiple CSVs into one source
-                'timezone': 'Europe/London',
-                'start_hour': 8, 'start_minute': 0,
-                'end_hour': 17, 'end_minute': 0,
-                'price_divisor': 1,
-            }
-        }
+SOURCES = [
+    {
+        'name': 'DAX Futures',
+        'instrument': 'deuidxeur',
+        'timezone': 'Europe/London',
+        'start_hour': 8, 'start_minute': 0,
+        'end_hour': 17, 'end_minute': 0,
+        'start_date': '2019-01-01',
     },
-    'FTSE INDEX.zip': {
-        'sources': {
-            'FTSE': {
-                'file_pattern': 'FTSE',  # Match all FTSE*.csv
-                'combine': True,
-                'timezone': 'Europe/London',
-                'start_hour': 8, 'start_minute': 0,
-                'end_hour': 16, 'end_minute': 30,
-                'price_divisor': 1,
-            }
-        }
+    {
+        'name': 'DOW',
+        'instrument': 'usa30idxusd',
+        'timezone': 'America/New_York',
+        'start_hour': 9, 'start_minute': 30,
+        'end_hour': 16, 'end_minute': 0,
+        'start_date': '2019-01-01',
     },
-    'US DOW NASDAQ SP500.zip': {
-        'sources': {
-            'DOW': {
-                'filename': 'Dow Jones from 2019 with volume.csv',
-                'combine': False,
-                'timezone': 'America/New_York',
-                'start_hour': 9, 'start_minute': 30,
-                'end_hour': 16, 'end_minute': 0,
-                'price_divisor': 1,
-            },
-            'Nasdaq': {
-                'filename': 'Nasdaq from 2019 with volume.csv',
-                'combine': False,
-                'timezone': 'America/New_York',
-                'start_hour': 9, 'start_minute': 30,
-                'end_hour': 16, 'end_minute': 0,
-                'price_divisor': 100,  # Values are scaled by 100x
-            },
-            'SP500': {
-                'filename': 'SP500 from 2019 with volume.csv',
-                'combine': False,
-                'timezone': 'America/New_York',
-                'start_hour': 9, 'start_minute': 30,
-                'end_hour': 16, 'end_minute': 0,
-                'price_divisor': 100,  # Values are scaled by 100x
-            },
-        }
+    {
+        'name': 'Nasdaq',
+        'instrument': 'usatechidxusd',
+        'timezone': 'America/New_York',
+        'start_hour': 9, 'start_minute': 30,
+        'end_hour': 16, 'end_minute': 0,
+        'start_date': '2019-01-01',
     },
-}
-
-# Order of sources in output
-SOURCE_ORDER = ['DAX Futures', 'DOW', 'Nasdaq', 'SP500', 'FTSE']
-
-
-def read_csvs_from_zip(zip_path, file_pattern=None, filename=None):
-    """Read CSV file(s) from a zip archive.
-
-    Args:
-        zip_path: Path to the zip file
-        file_pattern: Pattern to match multiple CSV files (for combined sources)
-        filename: Exact filename for a single CSV file
-
-    Returns:
-        pandas DataFrame with combined data
-    """
-    all_data = []
-
-    with zipfile.ZipFile(zip_path, 'r') as zf:
-        csv_files = []
-
-        if filename:
-            # Find the exact file (may be in a subdirectory)
-            for name in zf.namelist():
-                if name.endswith(filename):
-                    csv_files = [name]
-                    break
-            if not csv_files:
-                print(f"  WARNING: File '{filename}' not found in {zip_path}")
-                return pd.DataFrame()
-        elif file_pattern:
-            # Find all matching CSV files
-            csv_files = sorted([
-                name for name in zf.namelist()
-                if name.endswith('.csv') and file_pattern in os.path.basename(name)
-            ])
-
-        if not csv_files:
-            print(f"  WARNING: No matching files found in {zip_path}")
-            return pd.DataFrame()
-
-        for csv_file in csv_files:
-            print(f"    Reading {os.path.basename(csv_file)}...", flush=True)
-            with zf.open(csv_file) as f:
-                try:
-                    df = pd.read_csv(io.TextIOWrapper(f, encoding='utf-8'))
-                    # Drop rows where all OHLC values are NaN (trailing empty rows)
-                    df = df.dropna(subset=['Open', 'High', 'Low', 'Close'], how='all')
-                    if not df.empty:
-                        all_data.append(df)
-                except Exception as e:
-                    print(f"    ERROR reading {csv_file}: {e}", flush=True)
-
-    if not all_data:
-        return pd.DataFrame()
-
-    combined = pd.concat(all_data, ignore_index=True)
-    print(f"    Total records: {len(combined)}", flush=True)
-    return combined
-
-
-def parse_london_datetime(df):
-    """Parse Date and Time columns into London timezone-aware datetime.
-
-    All CSV data uses London time (GMT/BST).
-    """
-    london_tz = pytz.timezone('Europe/London')
-
-    # Format varies: MM/DD/YY or MM/DD/YYYY
-    df = df.copy()
-    df['DateTime'] = pd.to_datetime(
-        df['Date'].astype(str) + ' ' + df['Time'].astype(str),
-        format='mixed',
-        dayfirst=False
-    )
-
-    # Localize to London time
-    df['DateTime'] = df['DateTime'].dt.tz_localize(
-        london_tz,
-        ambiguous='NaT',
-        nonexistent='NaT'
-    )
-
-    df = df.dropna(subset=['DateTime'])
-    return df
-
-
-def apply_price_divisor(df, divisor):
-    """Divide OHLC prices by a divisor to correct scaling."""
-    if divisor != 1:
-        for col in ['Open', 'High', 'Low', 'Close']:
-            df[col] = df[col] / divisor
-    return df
+    {
+        'name': 'SP500',
+        'instrument': 'usa500idxusd',
+        'timezone': 'America/New_York',
+        'start_hour': 9, 'start_minute': 30,
+        'end_hour': 16, 'end_minute': 0,
+        'start_date': '2019-01-01',
+    },
+    {
+        'name': 'FTSE',
+        'instrument': 'gbridxgbp',
+        'timezone': 'Europe/London',
+        'start_hour': 8, 'start_minute': 0,
+        'end_hour': 16, 'end_minute': 30,
+        'start_date': '2019-01-01',
+    },
+]
 
 
 def filter_trading_hours(df, config):
-    """Filter data to trading hours based on instrument config."""
+    """Filter 5-min bars to trading hours in the instrument's local timezone."""
     tz = pytz.timezone(config['timezone'])
-
-    # Convert to instrument's local timezone
     df = df.copy()
-    df['local_time'] = df['DateTime'].dt.tz_convert(tz)
+    # aggregate() produces a naive UTC index — localize then convert
+    df.index = df.index.tz_localize('UTC').tz_convert(tz)
 
     start_minutes = config['start_hour'] * 60 + config['start_minute']
     end_minutes = config['end_hour'] * 60 + config['end_minute']
 
     mask = (
-        (df['local_time'].dt.hour * 60 + df['local_time'].dt.minute >= start_minutes) &
-        (df['local_time'].dt.hour * 60 + df['local_time'].dt.minute < end_minutes) &
-        (df['local_time'].dt.weekday < 5)  # Monday-Friday only
+        (df.index.hour * 60 + df.index.minute >= start_minutes) &
+        (df.index.hour * 60 + df.index.minute < end_minutes) &
+        (df.index.weekday < 5)
     )
-
-    result = df[mask].copy()
-    result = result.drop(columns=['local_time'])
-    return result
-
-
-def aggregate_to_5min(df):
-    """Aggregate 1-minute bars to 5-minute bars."""
-    df = df.copy()
-    df = df.set_index('DateTime')
-
-    ohlc = df[['Open', 'High', 'Low', 'Close']].resample('5min').agg({
-        'Open': 'first',
-        'High': 'max',
-        'Low': 'min',
-        'Close': 'last'
-    }).dropna()
-
-    ohlc = ohlc.reset_index()
-    return ohlc
+    return df[mask]
 
 
 def classify_gap_size(pct_change):
-    """Classify gap size into categories."""
     abs_pct = abs(pct_change)
     if abs_pct < 0.1:
         return '0-0.1%'
@@ -231,86 +95,26 @@ def classify_gap_size(pct_change):
         return '1.0%+'
 
 
-def calculate_bar_directions(ohlc_df):
-    """Calculate direction (UP/DOWN/FLAT) for each bar."""
-    directions = []
-    for _, row in ohlc_df.iterrows():
-        if row['Close'] > row['Open']:
-            directions.append('UP')
-        elif row['Close'] < row['Open']:
-            directions.append('DOWN')
-        else:
-            directions.append('FLAT')
-    return directions
-
-
-def calculate_body_ratios(ohlc_df):
-    """Calculate body-to-range ratio category for each bar."""
-    ratios = []
-    for _, row in ohlc_df.iterrows():
-        high_low_range = row['High'] - row['Low']
-        if high_low_range > 0:
-            body = abs(row['Close'] - row['Open'])
-            ratio = (body / high_low_range) * 100
-            if ratio < 25:
-                ratios.append('<25%')
-            elif ratio < 50:
-                ratios.append('25-50%')
-            elif ratio < 75:
-                ratios.append('50-75%')
-            else:
-                ratios.append('>75%')
-        else:
-            ratios.append('<25%')
-    return ratios
-
-
-def process_source_data(data, source_name, config):
-    """Process data for a single source and return trading days with OHLC data."""
-    data = data.copy()
-
-    # Get timezone for this source
-    tz = pytz.timezone(config['timezone'])
-
-    # Convert to local timezone for grouping by trading day
-    data['local_time'] = data['DateTime'].dt.tz_convert(tz)
-    data['trading_date'] = data['local_time'].dt.date
-
-    trading_days = sorted(data['trading_date'].unique())
+def process_trading_days(ohlc_5min, config):
+    """Convert filtered 5-min OHLC into per-day entries matching the SPA JSON schema."""
+    ohlc_5min = ohlc_5min.copy()
+    ohlc_5min['trading_date'] = ohlc_5min.index.date
+    trading_days = sorted(ohlc_5min['trading_date'].unique())
 
     results = []
     prev_day_stats = None
 
     for day in trading_days:
-        day_data = data[data['trading_date'] == day].copy()
+        day_data = ohlc_5min[ohlc_5min['trading_date'] == day].drop(columns=['trading_date'])
 
-        # Filter to trading hours
-        day_data = filter_trading_hours(day_data, config)
-
-        if len(day_data) < 10:  # Need at least 10 1-min bars
+        if len(day_data) < 5:
             continue
 
-        # Aggregate to 5-minute bars
-        ohlc = aggregate_to_5min(day_data)
+        day_open = day_data.iloc[0]['open']
+        day_high = day_data['high'].max()
+        day_low = day_data['low'].min()
+        day_close = day_data.iloc[-1]['close']
 
-        if len(ohlc) < 5:  # Need at least 5 5-min bars
-            continue
-
-        # Calculate day statistics
-        day_open = ohlc.iloc[0]['Open']
-        day_high = ohlc['High'].max()
-        day_low = ohlc['Low'].min()
-        day_close = ohlc.iloc[-1]['Close']
-
-        # Get close near end of day for prev_close calculation
-        end_hour = config['end_hour']
-        close_bars = ohlc[ohlc['DateTime'].dt.tz_convert(tz).dt.hour == end_hour - 1]
-        if len(close_bars) > 0:
-            prev_close = close_bars.iloc[-1]['Close']
-        else:
-            prev_close = day_close
-
-        # Calculate gap characteristics
         gap_direction = 'N/A'
         gap_size_class = 'N/A'
         open_above_prev_high = None
@@ -333,20 +137,40 @@ def process_source_data(data, source_name, config):
                 open_above_prev_high = bool(day_open > prev_day_stats['high'])
                 close_below_prev_low = bool(day_close < prev_day_stats['low'])
 
-        # Convert OHLC to compact format: [timestamp_ms, open, high, low, close]
         bars = []
-        for _, row in ohlc.iterrows():
-            timestamp_ms = int(row['DateTime'].timestamp() * 1000)
-            bars.append([
-                timestamp_ms,
-                float(round(row['Open'], 2)),
-                float(round(row['High'], 2)),
-                float(round(row['Low'], 2)),
-                float(round(row['Close'], 2))
-            ])
+        bar_directions = []
+        body_ratios = []
 
-        bar_dirs = calculate_bar_directions(ohlc)
-        body_ratios = calculate_body_ratios(ohlc)
+        for idx, row in day_data.iterrows():
+            timestamp_ms = int(idx.timestamp() * 1000)
+            o = float(round(row['open'], 2))
+            h = float(round(row['high'], 2))
+            l = float(round(row['low'], 2))
+            c = float(round(row['close'], 2))
+            bars.append([timestamp_ms, o, h, l, c])
+
+            # Direction
+            if c > o:
+                bar_directions.append('UP')
+            elif c < o:
+                bar_directions.append('DOWN')
+            else:
+                bar_directions.append('FLAT')
+
+            # Body ratio
+            hl_range = h - l
+            if hl_range > 0:
+                ratio = (abs(c - o) / hl_range) * 100
+                if ratio < 25:
+                    body_ratios.append('<25%')
+                elif ratio < 50:
+                    body_ratios.append('25-50%')
+                elif ratio < 75:
+                    body_ratios.append('50-75%')
+                else:
+                    body_ratios.append('>75%')
+            else:
+                body_ratios.append('<25%')
 
         results.append({
             'date': day.strftime('%Y%m%d'),
@@ -358,15 +182,15 @@ def process_source_data(data, source_name, config):
             'openAbovePrevHigh': open_above_prev_high,
             'closeBelowPrevLow': close_below_prev_low,
             'bars': bars,
-            'barDirections': bar_dirs,
-            'bodyRatios': body_ratios
+            'barDirections': bar_directions,
+            'bodyRatios': body_ratios,
         })
 
         prev_day_stats = {
             'date': day,
-            'close': float(prev_close),
+            'close': float(day_close),
             'high': float(day_high),
-            'low': float(day_low)
+            'low': float(day_low),
         }
 
     return results
@@ -375,88 +199,81 @@ def process_source_data(data, source_name, config):
 def main():
     sys.stdout.reconfigure(line_buffering=True)
 
-    print("=" * 60, flush=True)
-    print("Multi-Source OHLC Data Preparation (from ZIP files)", flush=True)
-    print("=" * 60, flush=True)
+    print("=" * 60)
+    print("OHLC Data Preparation (Dukascopy via DB_yield)")
+    print("=" * 60)
 
     output_data = {
         'metadata': {
             'generated': datetime.now().isoformat(),
             'baseFrequency': '5min',
-            'sources': []
+            'sources': [],
         },
-        'sources': []
+        'sources': [],
     }
 
-    # Collect all processed sources
-    all_sources = {}
     total_days = 0
-    step = 0
-    total_steps = sum(len(z['sources']) for z in ZIP_FILES.values())
 
-    for zip_name, zip_config in ZIP_FILES.items():
-        zip_path = os.path.join(DATA_DIR, zip_name)
+    for i, config in enumerate(SOURCES):
+        print(f"\n[{i+1}/{len(SOURCES)}] {config['name']} ({config['instrument']})...", flush=True)
 
-        if not os.path.exists(zip_path):
-            print(f"\nWARNING: {zip_path} not found, skipping", flush=True)
+        db = Db(
+            instrument=config['instrument'],
+            start_date=config['start_date'],
+            end_date=END_DATE,
+            freq='5min',
+            method='dukascopy',
+        )
+
+        # Fetch in chunks to keep memory reasonable
+        start = pd.to_datetime(config['start_date'])
+        end = pd.to_datetime(END_DATE)
+        all_ohlc = []
+        current = start
+
+        while current < end:
+            chunk_end = min(current + timedelta(days=CHUNK_DAYS), end)
+            print(f"  Fetching {current.strftime('%Y-%m-%d')} to {chunk_end.strftime('%Y-%m-%d')}...", flush=True)
+
+            try:
+                raw = db.dataslice(datefrom=current, dateto=chunk_end, delvolume=True)
+                if raw is not None and len(raw) > 0:
+                    ohlc = db.aggregate(raw)
+                    all_ohlc.append(ohlc)
+            except Exception as e:
+                print(f"    Error: {e}", flush=True)
+
+            current = chunk_end
+
+        if not all_ohlc:
+            print(f"  No data for {config['name']}, skipping", flush=True)
             continue
 
-        print(f"\nProcessing {zip_name}...", flush=True)
+        # Combine chunks, deduplicate, sort
+        combined = pd.concat(all_ohlc)
+        combined = combined[~combined.index.duplicated(keep='first')]
+        combined = combined.sort_index()
 
-        for source_name, source_config in zip_config['sources'].items():
-            step += 1
-            print(f"\n  [{step}/{total_steps}] {source_name}...", flush=True)
+        # Filter to trading hours
+        filtered = filter_trading_hours(combined, config)
+        print(f"  5-min bars after filtering: {len(filtered)}", flush=True)
 
-            # Read CSV data from zip
-            if source_config['combine']:
-                raw_data = read_csvs_from_zip(
-                    zip_path,
-                    file_pattern=source_config['file_pattern']
-                )
-            else:
-                raw_data = read_csvs_from_zip(
-                    zip_path,
-                    filename=source_config['filename']
-                )
+        # Process into trading days
+        trading_days = process_trading_days(filtered, config)
 
-            if raw_data.empty:
-                print(f"  No data for {source_name}, skipping", flush=True)
-                continue
+        if trading_days:
+            output_data['sources'].append({
+                'name': config['name'],
+                'timezone': config['timezone'],
+                'tradingHours': f"{config['start_hour']:02d}:{config['start_minute']:02d}-{config['end_hour']:02d}:{config['end_minute']:02d}",
+                'tradingDays': trading_days,
+            })
+            output_data['metadata']['sources'].append(config['name'])
+            total_days += len(trading_days)
+            print(f"  {config['name']}: {len(trading_days)} trading days", flush=True)
 
-            # Parse datetime (all times are London time)
-            print(f"    Parsing timestamps...", flush=True)
-            raw_data = parse_london_datetime(raw_data)
-
-            # Apply price scaling
-            raw_data = apply_price_divisor(raw_data, source_config['price_divisor'])
-
-            # Sort and drop duplicate timestamps (from overlapping contracts)
-            raw_data = raw_data.sort_values('DateTime')
-            raw_data = raw_data.drop_duplicates(subset=['DateTime'], keep='first')
-            print(f"    Unique 1-min bars: {len(raw_data)}", flush=True)
-
-            # Process into trading days
-            print(f"    Processing trading days...", flush=True)
-            trading_days = process_source_data(raw_data, source_name, source_config)
-
-            if trading_days:
-                all_sources[source_name] = {
-                    'name': source_name,
-                    'timezone': source_config['timezone'],
-                    'tradingHours': f"{source_config['start_hour']:02d}:{source_config['start_minute']:02d}-{source_config['end_hour']:02d}:{source_config['end_minute']:02d}",
-                    'tradingDays': trading_days
-                }
-                total_days += len(trading_days)
-                print(f"    {source_name}: {len(trading_days)} trading days", flush=True)
-
-            # Free memory
-            del raw_data
-
-    # Output sources in defined order
-    for source_name in SOURCE_ORDER:
-        if source_name in all_sources:
-            output_data['sources'].append(all_sources[source_name])
-            output_data['metadata']['sources'].append(source_name)
+        # Free memory
+        del combined, filtered, all_ohlc
 
     output_data['metadata']['totalSources'] = len(output_data['sources'])
     output_data['metadata']['totalTradingDays'] = total_days
@@ -469,7 +286,7 @@ def main():
         json.dump(output_data, f, separators=(',', ':'))
 
     file_size = os.path.getsize(OUTPUT_FILE)
-    print(f"Output file size: {file_size / 1024 / 1024:.2f} MB", flush=True)
+    print(f"Output file size: {file_size / 1024 / 1024:.2f} MB")
 
     print("\n" + "=" * 60)
     print("Done!")
