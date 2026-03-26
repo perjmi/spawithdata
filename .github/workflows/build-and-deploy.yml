@@ -1,0 +1,23 @@
+name: Build data and deploy to OCI
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 0'  # Weekly on Sunday at 03:00 UTC
+
+jobs:
+  build-and-deploy:
+    runs-on: [self-hosted, oci]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build OHLC data
+        run: |
+          export PATH="$HOME/.nvm/versions/node/v25.6.1/bin:$PATH"
+          python3 prepare_data.py
+
+      - name: Deploy to nginx
+        run: |
+          mkdir -p /var/www/spawithdata/data
+          cp index.html app.js chart-renderer.js data-processor.js export.js styles.css trade-simulator.js /var/www/spawithdata/
+          cp data/ohlc_data.json /var/www/spawithdata/data/
