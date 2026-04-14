@@ -1,12 +1,23 @@
-name: Build data and deploy to OCI
+name: Build data and deploy to GitHub Pages
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
   schedule:
     - cron: '0 3 * * 0'  # Weekly on Sunday at 03:00 UTC
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  build-and-deploy:
+  build:
     runs-on: [self-hosted, oci]
     steps:
       - uses: actions/checkout@v4
@@ -16,8 +27,20 @@ jobs:
           export PATH="$HOME/.nvm/versions/node/v25.6.1/bin:$PATH"
           python3 prepare_data.py
 
-      - name: Deploy to nginx
+      - name: Prepare site
         run: |
-          mkdir -p /var/www/spawithdata/data
-          cp index.html app.js chart-renderer.js data-processor.js export.js styles.css trade-simulator.js /var/www/spawithdata/
-          cp data/ohlc_data.json /var/www/spawithdata/data/
+          mkdir -p _site/data
+          cp index.html app.js chart-renderer.js data-processor.js export.js styles.css trade-simulator.js _site/
+          cp data/ohlc_data.json _site/data/
+
+      - uses: actions/upload-pages-artifact@v3
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
