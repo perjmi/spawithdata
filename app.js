@@ -5,7 +5,7 @@
 
 // Global state
 let barFilters = []; // Array of {bar: number, direction: string}
-const MAX_CHARTS = 50;
+const MAX_CHARTS = Infinity;
 const MAX_BAR_NUMBER = 120;
 
 // Credentials
