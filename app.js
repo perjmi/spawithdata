@@ -421,11 +421,32 @@ function applyFilters() {
 
     gallery.innerHTML = galleryHtml;
 
-    // Create charts after DOM update
+    // Lazy-render charts as they scroll into view
+    if (window._chartObserver) {
+        window._chartObserver.disconnect();
+    }
+
+    window._chartObserver = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+            if (entry.isIntersecting) {
+                const el = entry.target;
+                const index = parseInt(el.dataset.chartIndex, 10);
+                const chartData = toDisplay[index];
+                if (chartData) {
+                    ChartRenderer.createChart(el.id, chartData.bars, { timezone: chartData.timezone });
+                }
+                window._chartObserver.unobserve(el);
+            }
+        }
+    }, { rootMargin: '200px' });
+
     requestAnimationFrame(() => {
         toDisplay.forEach((chartData, index) => {
-            const containerId = `chart-${index}`;
-            ChartRenderer.createChart(containerId, chartData.bars, { timezone: chartData.timezone });
+            const container = document.getElementById(`chart-${index}`);
+            if (container) {
+                container.dataset.chartIndex = index;
+                window._chartObserver.observe(container);
+            }
         });
     });
 }
