@@ -47,12 +47,12 @@ const ChartRenderer = (function() {
             width: container.clientWidth,
             height: options.height || 300,
             layout: {
-                background: { type: 'solid', color: '#131722' },
-                textColor: '#d1d4dc',
+                background: { type: 'solid', color: '#d6eaf8' },
+                textColor: '#333333',
             },
             grid: {
-                vertLines: { color: '#1e222d' },
-                horzLines: { color: '#1e222d' },
+                vertLines: { color: '#aed6f1' },
+                horzLines: { color: '#aed6f1' },
             },
             crosshair: {
                 mode: LightweightCharts.CrosshairMode.Normal,
