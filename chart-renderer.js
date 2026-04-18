@@ -72,12 +72,12 @@ const ChartRenderer = (function() {
 
         // Add candlestick series
         const candlestickSeries = chart.addCandlestickSeries({
-            upColor: '#26a69a',
-            downColor: '#ef5350',
-            borderDownColor: '#ef5350',
-            borderUpColor: '#26a69a',
-            wickDownColor: '#ef5350',
-            wickUpColor: '#26a69a',
+            upColor: '#ffffff',
+            downColor: '#000000',
+            borderDownColor: '#000000',
+            borderUpColor: '#000000',
+            wickDownColor: '#000000',
+            wickUpColor: '#000000',
         });
 
         // Convert data to lightweight-charts format
