@@ -91,7 +91,7 @@ function setupEventListeners() {
 
     // Auto-apply filters on any change (event delegation for dynamic inputs)
     document.querySelector('.sidebar').addEventListener('change', (e) => {
-        if (e.target.matches('input[type="checkbox"], input[type="radio"]')) {
+        if (e.target.matches('input[type="checkbox"], input[type="radio"], select')) {
             applyFilters();
         }
     });
@@ -113,16 +113,16 @@ function updateGalleryColumns() {
     gallery.classList.add(`cols-${cols}`);
 }
 
-// Populate source filter radio buttons from data
+// Populate source filter dropdown from data
 function populateSourceFilter() {
-    const container = document.getElementById('instrument-filter');
+    const select = document.getElementById('instrument-filter');
     const sources = DataProcessor.getSources();
 
-    container.innerHTML = sources.map((source, index) => {
+    select.innerHTML = sources.map((source, index) => {
         const meta = DataProcessor.getSourceMetadata(source);
         const tzLabel = meta ? ` (${meta.timezone.split('/')[1]})` : '';
-        const checked = index === 0 ? 'checked' : '';
-        return `<label><input type="radio" name="instrument" value="${source}" ${checked}> ${source}${tzLabel}</label>`;
+        const selected = index === 0 ? 'selected' : '';
+        return `<option value="${source}" ${selected}>${source}${tzLabel}</option>`;
     }).join('');
 }
 
@@ -204,8 +204,12 @@ function renderBarFilters() {
     }).join('');
 }
 
-// Get selected values for a filter group (supports both checkboxes and radio buttons)
+// Get selected values for a filter group (supports checkboxes, radio buttons, and selects)
 function getCheckedValues(filterName) {
+    const el = document.querySelector(`[data-filter="${filterName}"]`);
+    if (el && el.tagName === 'SELECT') {
+        return [el.value];
+    }
     const inputs = document.querySelectorAll(`[data-filter="${filterName}"] input:checked`);
     return Array.from(inputs).map(input => input.value);
 }
@@ -468,12 +472,9 @@ function clearFilters() {
         }
     });
 
-    // Reset radio buttons to first option (for instrument) or specific defaults
-    // Instrument: first source
-    const instrumentRadios = document.querySelectorAll('[data-filter="instrument"] input[type="radio"]');
-    if (instrumentRadios.length > 0) {
-        instrumentRadios[0].checked = true;
-    }
+    // Reset instrument dropdown to first option
+    const instrumentSelect = document.getElementById('instrument-filter');
+    if (instrumentSelect) instrumentSelect.selectedIndex = 0;
 
     // Frequency: 5min (first option)
     const freqRadio = document.querySelector('[data-filter="freq"] input[value="5min"]');

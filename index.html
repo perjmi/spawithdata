@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DAX Futures Chart Viewer</title>
+    <title>Chart Viewer</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/PptxGenJS@3.12.0/dist/pptxgen.bundle.js"></script>
@@ -12,7 +12,7 @@
     <!-- Login Screen -->
     <div id="login-screen" class="login-screen">
         <div class="login-container">
-            <h1>DAX Chart Viewer</h1>
+            <h1>Chart Viewer</h1>
             <form id="login-form">
                 <div class="form-group">
                     <label for="username">Username</label>
@@ -59,9 +59,9 @@
             <!-- Instrument Filter -->
             <div class="filter-group">
                 <label>Source</label>
-                <div class="checkbox-group" data-filter="instrument" id="instrument-filter">
+                <select data-filter="instrument" id="instrument-filter">
                     <!-- Populated dynamically from data -->
-                </div>
+                </select>
             </div>
 
             <!-- Frequency Filter -->
