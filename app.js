@@ -85,10 +85,16 @@ async function showLoadingAndLoadData() {
 
 // Setup event listeners
 function setupEventListeners() {
-    document.getElementById('apply-filters').addEventListener('click', applyFilters);
     document.getElementById('clear-filters').addEventListener('click', clearFilters);
     document.getElementById('add-bar-filter').addEventListener('click', addBarFilter);
     document.getElementById('charts-per-row').addEventListener('change', updateGalleryColumns);
+
+    // Auto-apply filters on any change (event delegation for dynamic inputs)
+    document.querySelector('.sidebar').addEventListener('change', (e) => {
+        if (e.target.matches('input[type="checkbox"], input[type="radio"]')) {
+            applyFilters();
+        }
+    });
 
     // Export buttons
     document.getElementById('export-markdown').addEventListener('click', () => Exporter.exportToMarkdown());
