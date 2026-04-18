@@ -8,7 +8,7 @@ on:
     - cron: '0 3 * * 0'  # Weekly on Sunday at 03:00 UTC
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -22,10 +22,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build OHLC data
+      - name: Build OHLC data (incremental)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           export PATH="$HOME/.nvm/versions/node/v25.6.1/bin:$PATH"
           python3 prepare_data.py
+
+      - name: Commit updated data
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ohlc_data.json
+          git diff --cached --quiet || git commit -m "Update OHLC data" && git push
 
       - name: Prepare site
         run: |

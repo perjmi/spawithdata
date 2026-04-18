@@ -95,14 +95,14 @@ def classify_gap_size(pct_change):
         return '1.0%+'
 
 
-def process_trading_days(ohlc_5min, config):
+def process_trading_days(ohlc_5min, config, initial_prev_day_stats=None):
     """Convert filtered 5-min OHLC into per-day entries matching the SPA JSON schema."""
     ohlc_5min = ohlc_5min.copy()
     ohlc_5min['trading_date'] = ohlc_5min.index.date
     trading_days = sorted(ohlc_5min['trading_date'].unique())
 
     results = []
-    prev_day_stats = None
+    prev_day_stats = initial_prev_day_stats
 
     for day in trading_days:
         day_data = ohlc_5min[ohlc_5min['trading_date'] == day].drop(columns=['trading_date'])
@@ -196,6 +196,28 @@ def process_trading_days(ohlc_5min, config):
     return results
 
 
+def load_existing_data():
+    """Load existing ohlc_data.json if present, return data and per-source last-date map."""
+    if not os.path.exists(OUTPUT_FILE):
+        return None, {}
+
+    try:
+        with open(OUTPUT_FILE, 'r') as f:
+            data = json.load(f)
+
+        last_dates = {}
+        for source in data.get('sources', []):
+            days = source.get('tradingDays', [])
+            if days:
+                last_date_str = days[-1]['date']  # YYYYMMDD
+                last_dates[source['name']] = last_date_str
+
+        return data, last_dates
+    except Exception as e:
+        print(f"  Warning: could not load existing data: {e}", flush=True)
+        return None, {}
+
+
 def main():
     sys.stdout.reconfigure(line_buffering=True)
 
@@ -203,30 +225,53 @@ def main():
     print("OHLC Data Preparation (Dukascopy via DB_yield)")
     print("=" * 60)
 
-    output_data = {
-        'metadata': {
-            'generated': datetime.now().isoformat(),
-            'baseFrequency': '5min',
-            'sources': [],
-        },
-        'sources': [],
-    }
+    existing_data, last_dates = load_existing_data()
 
-    total_days = 0
+    if existing_data:
+        print(f"Found existing data with {len(existing_data.get('sources', []))} sources")
+        for name, last_date in last_dates.items():
+            print(f"  {name}: last date {last_date}")
+        output_data = existing_data
+    else:
+        print("No existing data found, building from scratch")
+        output_data = {
+            'metadata': {
+                'generated': datetime.now().isoformat(),
+                'baseFrequency': '5min',
+                'sources': [],
+            },
+            'sources': [],
+        }
+
+    # Build a lookup for existing sources
+    existing_sources = {s['name']: s for s in output_data.get('sources', [])}
 
     for i, config in enumerate(SOURCES):
-        print(f"\n[{i+1}/{len(SOURCES)}] {config['name']} ({config['instrument']})...", flush=True)
+        source_name = config['name']
+        print(f"\n[{i+1}/{len(SOURCES)}] {source_name} ({config['instrument']})...", flush=True)
+
+        # Determine start date: day after last existing date, or config start
+        if source_name in last_dates:
+            last_dt = datetime.strptime(last_dates[source_name], '%Y%m%d')
+            fetch_start = (last_dt + timedelta(days=1)).strftime('%Y-%m-%d')
+            if fetch_start >= END_DATE:
+                print(f"  Already up to date (last: {last_dates[source_name]})", flush=True)
+                continue
+            print(f"  Incremental fetch from {fetch_start}", flush=True)
+        else:
+            fetch_start = config['start_date']
+            print(f"  Full fetch from {fetch_start}", flush=True)
 
         db = Db(
             instrument=config['instrument'],
-            start_date=config['start_date'],
+            start_date=fetch_start,
             end_date=END_DATE,
             freq='5min',
             method='dukascopy',
         )
 
         # Fetch in chunks to keep memory reasonable
-        start = pd.to_datetime(config['start_date'])
+        start = pd.to_datetime(fetch_start)
         end = pd.to_datetime(END_DATE)
         all_ohlc = []
         current = start
@@ -246,7 +291,7 @@ def main():
             current = chunk_end
 
         if not all_ohlc:
-            print(f"  No data for {config['name']}, skipping", flush=True)
+            print(f"  No new data for {source_name}", flush=True)
             continue
 
         # Combine chunks, deduplicate, sort
@@ -258,25 +303,57 @@ def main():
         filtered = filter_trading_hours(combined, config)
         print(f"  5-min bars after filtering: {len(filtered)}", flush=True)
 
+        # Get prev_day_stats from existing data for gap calculation continuity
+        prev_day_stats_for_new = None
+        if source_name in existing_sources:
+            existing_days = existing_sources[source_name].get('tradingDays', [])
+            if existing_days:
+                last_day = existing_days[-1]
+                last_bars = last_day['bars']
+                if last_bars:
+                    last_bar = last_bars[-1]
+                    day_bars_open = last_bars[0][1]
+                    day_high = max(b[2] for b in last_bars)
+                    day_low = min(b[3] for b in last_bars)
+                    day_close = last_bar[4]
+                    prev_day_stats_for_new = {
+                        'date': datetime.strptime(last_day['date'], '%Y%m%d').date(),
+                        'close': day_close,
+                        'high': day_high,
+                        'low': day_low,
+                    }
+
         # Process into trading days
-        trading_days = process_trading_days(filtered, config)
+        trading_days = process_trading_days(filtered, config, prev_day_stats_for_new)
 
         if trading_days:
-            output_data['sources'].append({
-                'name': config['name'],
-                'timezone': config['timezone'],
-                'tradingHours': f"{config['start_hour']:02d}:{config['start_minute']:02d}-{config['end_hour']:02d}:{config['end_minute']:02d}",
-                'tradingDays': trading_days,
-            })
-            output_data['metadata']['sources'].append(config['name'])
-            total_days += len(trading_days)
-            print(f"  {config['name']}: {len(trading_days)} trading days", flush=True)
+            if source_name in existing_sources:
+                # Append new days to existing source
+                existing_sources[source_name]['tradingDays'].extend(trading_days)
+                print(f"  Appended {len(trading_days)} new days (total: {len(existing_sources[source_name]['tradingDays'])})", flush=True)
+            else:
+                # New source
+                new_source = {
+                    'name': source_name,
+                    'timezone': config['timezone'],
+                    'tradingHours': f"{config['start_hour']:02d}:{config['start_minute']:02d}-{config['end_hour']:02d}:{config['end_minute']:02d}",
+                    'tradingDays': trading_days,
+                }
+                output_data['sources'].append(new_source)
+                existing_sources[source_name] = new_source
+                if source_name not in output_data['metadata']['sources']:
+                    output_data['metadata']['sources'].append(source_name)
+                print(f"  Added new source with {len(trading_days)} days", flush=True)
 
         # Free memory
         del combined, filtered, all_ohlc
 
+    # Update metadata
+    total_days = sum(len(s.get('tradingDays', [])) for s in output_data['sources'])
     output_data['metadata']['totalSources'] = len(output_data['sources'])
     output_data['metadata']['totalTradingDays'] = total_days
+    output_data['metadata']['generated'] = datetime.now().isoformat()
+    output_data['metadata']['sources'] = [s['name'] for s in output_data['sources']]
 
     # Write JSON output
     print(f"\nWriting JSON output to {OUTPUT_FILE}...", flush=True)
