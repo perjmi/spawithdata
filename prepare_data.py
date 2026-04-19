@@ -23,9 +23,9 @@ SOURCES = [
     {
         'name': 'DAX',
         'instrument': 'deuidxeur',
-        'timezone': 'Europe/Berlin',
-        'start_hour': 9, 'start_minute': 0,
-        'end_hour': 17, 'end_minute': 30,
+        'timezone': 'Europe/London',
+        'start_hour': 8, 'start_minute': 0,
+        'end_hour': 16, 'end_minute': 30,
         'start_date': '2019-01-01',
     },
     {

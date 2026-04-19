@@ -74,7 +74,6 @@ async function showLoadingAndLoadData() {
         // Initialize filters and apply
         populateSourceFilter();
         populateBarNumberDropdown();
-        updateGalleryColumns();
         applyFilters();
 
     } catch (error) {
@@ -87,7 +86,6 @@ async function showLoadingAndLoadData() {
 function setupEventListeners() {
     document.getElementById('clear-filters').addEventListener('click', clearFilters);
     document.getElementById('add-bar-filter').addEventListener('click', addBarFilter);
-    document.getElementById('charts-per-row').addEventListener('change', updateGalleryColumns);
 
     // Auto-apply filters on any change (event delegation for dynamic inputs)
     document.querySelector('.sidebar').addEventListener('change', (e) => {
@@ -102,15 +100,6 @@ function setupEventListeners() {
 
     // Simulation
     document.getElementById('clear-simulation').addEventListener('click', clearSimulation);
-}
-
-// Update gallery columns based on selection
-function updateGalleryColumns() {
-    const cols = document.getElementById('charts-per-row').value;
-    const gallery = document.getElementById('gallery');
-
-    gallery.classList.remove('cols-1', 'cols-2', 'cols-3', 'cols-4', 'cols-5');
-    gallery.classList.add(`cols-${cols}`);
 }
 
 // Populate source filter dropdown from data
