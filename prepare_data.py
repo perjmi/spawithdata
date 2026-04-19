@@ -115,27 +115,28 @@ def process_trading_days(ohlc_5min, config, initial_prev_day_stats=None):
         day_low = day_data['low'].min()
         day_close = day_data.iloc[-1]['close']
 
-        gap_direction = 'N/A'
-        gap_size_class = 'N/A'
-        open_above_prev_high = None
-        close_below_prev_low = None
+        if prev_day_stats is None:
+            prev_day_stats = {
+                'date': day,
+                'close': float(day_close),
+                'high': float(day_high),
+                'low': float(day_low),
+            }
+            continue
 
-        if prev_day_stats is not None:
-            days_diff = (day - prev_day_stats['date']).days
-            if days_diff <= 5:
-                prev_close_val = prev_day_stats['close']
-                gap_pct = ((day_open - prev_close_val) / prev_close_val) * 100
+        prev_close_val = prev_day_stats['close']
+        gap_pct = ((day_open - prev_close_val) / prev_close_val) * 100
 
-                if day_open > prev_close_val:
-                    gap_direction = 'GAP UP'
-                elif day_open < prev_close_val:
-                    gap_direction = 'GAP DOWN'
-                else:
-                    gap_direction = 'FLAT'
+        if day_open > prev_close_val:
+            gap_direction = 'GAP UP'
+        elif day_open < prev_close_val:
+            gap_direction = 'GAP DOWN'
+        else:
+            gap_direction = 'FLAT'
 
-                gap_size_class = classify_gap_size(gap_pct)
-                open_above_prev_high = bool(day_open > prev_day_stats['high'])
-                close_below_prev_low = bool(day_close < prev_day_stats['low'])
+        gap_size_class = classify_gap_size(gap_pct)
+        open_above_prev_high = bool(day_open > prev_day_stats['high'])
+        close_below_prev_low = bool(day_close < prev_day_stats['low'])
 
         bars = []
         bar_directions = []
@@ -174,9 +175,9 @@ def process_trading_days(ohlc_5min, config, initial_prev_day_stats=None):
 
         results.append({
             'date': day.strftime('%Y%m%d'),
-            'prevClose': float(round(prev_day_stats['close'], 2)) if prev_day_stats else None,
-            'prevHigh': float(round(prev_day_stats['high'], 2)) if prev_day_stats else None,
-            'prevLow': float(round(prev_day_stats['low'], 2)) if prev_day_stats else None,
+            'prevClose': float(round(prev_day_stats['close'], 2)),
+            'prevHigh': float(round(prev_day_stats['high'], 2)),
+            'prevLow': float(round(prev_day_stats['low'], 2)),
             'gapDirection': gap_direction,
             'gapSizeClass': gap_size_class,
             'openAbovePrevHigh': open_above_prev_high,
