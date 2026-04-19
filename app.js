@@ -466,8 +466,8 @@ function clearFilters() {
     if (instrumentSelect) instrumentSelect.selectedIndex = 0;
 
     // Frequency: 5min (first option)
-    const freqRadio = document.querySelector('[data-filter="freq"] input[value="5min"]');
-    if (freqRadio) freqRadio.checked = true;
+    const freqSelect = document.getElementById('freq-filter');
+    if (freqSelect) freqSelect.selectedIndex = 0;
 
     // Clear bar filters
     barFilters = [];
