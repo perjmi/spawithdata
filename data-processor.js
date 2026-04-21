@@ -63,6 +63,7 @@ const DataProcessor = (function() {
                     prevHigh: day.prevHigh,
                     prevLow: day.prevLow,
                     bars: day.bars,
+                    prevBars: day.prevBars || [],
                     barDirections: day.barDirections,
                     bodyRatios: day.bodyRatios || []
                 });

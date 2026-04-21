@@ -425,6 +425,8 @@ function applyFilters() {
         window._chartObserver.disconnect();
     }
 
+    const showPrevBars = document.getElementById('show-prev-bars').checked;
+
     window._chartObserver = new IntersectionObserver((entries) => {
         for (const entry of entries) {
             if (entry.isIntersecting) {
@@ -432,7 +434,11 @@ function applyFilters() {
                 const index = parseInt(el.dataset.chartIndex, 10);
                 const chartData = toDisplay[index];
                 if (chartData) {
-                    ChartRenderer.createChart(el.id, chartData.bars, { timezone: chartData.timezone });
+                    let bars = chartData.bars;
+                    if (showPrevBars && chartData.prevBars && chartData.prevBars.length > 0) {
+                        bars = [...chartData.prevBars, ...bars];
+                    }
+                    ChartRenderer.createChart(el.id, bars, { timezone: chartData.timezone });
                 }
                 window._chartObserver.unobserve(el);
             }

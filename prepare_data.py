@@ -103,6 +103,7 @@ def process_trading_days(ohlc_5min, config, initial_prev_day_stats=None):
 
     results = []
     prev_day_stats = initial_prev_day_stats
+    prev_day_last_bars = None
 
     for day in trading_days:
         day_data = ohlc_5min[ohlc_5min['trading_date'] == day].drop(columns=['trading_date'])
@@ -115,6 +116,16 @@ def process_trading_days(ohlc_5min, config, initial_prev_day_stats=None):
         day_low = day_data['low'].min()
         day_close = day_data.iloc[-1]['close']
 
+        # Build bars for this day (needed for prev_day_last_bars tracking)
+        day_bars = []
+        for idx, row in day_data.iterrows():
+            timestamp_ms = int(idx.timestamp() * 1000)
+            o = float(round(row['open'], 2))
+            h = float(round(row['high'], 2))
+            l = float(round(row['low'], 2))
+            c = float(round(row['close'], 2))
+            day_bars.append([timestamp_ms, o, h, l, c])
+
         if prev_day_stats is None:
             prev_day_stats = {
                 'date': day,
@@ -122,6 +133,7 @@ def process_trading_days(ohlc_5min, config, initial_prev_day_stats=None):
                 'high': float(day_high),
                 'low': float(day_low),
             }
+            prev_day_last_bars = day_bars[-4:] if len(day_bars) >= 4 else day_bars
             continue
 
         prev_close_val = prev_day_stats['close']
@@ -138,17 +150,11 @@ def process_trading_days(ohlc_5min, config, initial_prev_day_stats=None):
         open_above_prev_high = bool(day_open > prev_day_stats['high'])
         close_below_prev_low = bool(day_close < prev_day_stats['low'])
 
-        bars = []
         bar_directions = []
         body_ratios = []
 
-        for idx, row in day_data.iterrows():
-            timestamp_ms = int(idx.timestamp() * 1000)
-            o = float(round(row['open'], 2))
-            h = float(round(row['high'], 2))
-            l = float(round(row['low'], 2))
-            c = float(round(row['close'], 2))
-            bars.append([timestamp_ms, o, h, l, c])
+        for bar in day_bars:
+            o, h, l, c = bar[1], bar[2], bar[3], bar[4]
 
             # Direction
             if c > o:
@@ -173,7 +179,7 @@ def process_trading_days(ohlc_5min, config, initial_prev_day_stats=None):
             else:
                 body_ratios.append('<25%')
 
-        results.append({
+        entry = {
             'date': day.strftime('%Y%m%d'),
             'prevClose': float(round(prev_day_stats['close'], 2)),
             'prevHigh': float(round(prev_day_stats['high'], 2)),
@@ -182,10 +188,13 @@ def process_trading_days(ohlc_5min, config, initial_prev_day_stats=None):
             'gapSizeClass': gap_size_class,
             'openAbovePrevHigh': open_above_prev_high,
             'closeBelowPrevLow': close_below_prev_low,
-            'bars': bars,
+            'bars': day_bars,
             'barDirections': bar_directions,
             'bodyRatios': body_ratios,
-        })
+        }
+        if prev_day_last_bars:
+            entry['prevBars'] = prev_day_last_bars
+        results.append(entry)
 
         prev_day_stats = {
             'date': day,
@@ -193,6 +202,7 @@ def process_trading_days(ohlc_5min, config, initial_prev_day_stats=None):
             'high': float(day_high),
             'low': float(day_low),
         }
+        prev_day_last_bars = day_bars[-4:] if len(day_bars) >= 4 else day_bars
 
     return results
 
